@@ -1,14 +1,38 @@
 use std::{
     fs,
-    io::{prelude::*, BufReader},
+    io::{self, prelude::*, BufReader},
     net::{TcpListener, TcpStream},
 };
 fn main() {
-    let listener = TcpListener::bind("127.0.0.1:8001").unwrap();
+    let mut port = 8001;
 
-    for stream in listener.incoming() {
-        let stream = stream.unwrap();
-        handle_connection(stream);
+    loop {
+        let address = format!("127.0.0.1:{}", port);
+        match TcpListener::bind(&address) {
+            Ok(listener) => {
+                println!("Server listening on: {}", address);
+                for stream in listener.incoming() {
+                    let stream = match stream {
+                        Ok(stream) => stream,
+                        Err(e) => {
+                            eprintln!("Failed to accept incoming connection: {}", e);
+                            continue;
+                        }
+                    };
+                    handle_connection(stream);
+                }
+            }
+            Err(e) => {
+                if e.kind() == io::ErrorKind::AddrInUse {
+                    println!("Port {} is already in use. Trying the next port.", port);
+                    port += 1;
+                    continue;
+                } else {
+                    eprintln!("Failed to bind to address {}: {}", address, e);
+                    break;
+                }
+            }
+        }
     }
 }
 
